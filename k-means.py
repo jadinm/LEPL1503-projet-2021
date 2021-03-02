@@ -1,10 +1,32 @@
+import argparse
 import copy
 import itertools
 import math
+import struct
 from typing import List, Tuple
 
-K: int = 2
-vectors: List[Tuple[int, int]] = [(1, 1), (2, 2), (3, 4), (5, 7), (3, 5), (5, 5), (4, 5)]
+parser = argparse.ArgumentParser(description="Build a binary input from a json file")
+parser.add_argument("input_file", help="The path to the binary input file that describe an instance of k-means")
+parser.add_argument("output_file", help="The path to the CSV output file that describes the solutions")
+args = parser.parse_args()
+
+# Parse binary file
+
+with open(args.input_file, "rb") as file_obj:
+    binary_data = file_obj.read()
+
+K, dimension, picking_limit = struct.unpack("!III", binary_data[:12])  # Unpack binary data in network-byte order
+print(f"K = {K}, dimension = {dimension}, picking_limit = {picking_limit}")
+
+vectors: List[Tuple[int, int]] = []
+start_vectors_offset = 4 * 3
+nbr_vectors = (len(binary_data) - start_vectors_offset) // 8 // dimension
+for i in range(nbr_vectors):
+    v: List[int] = []
+    for j in range(dimension):
+        v.append(struct.unpack_from("!q", binary_data, start_vectors_offset + i * dimension * 8 + j * 8)[0])
+    vectors.append(tuple(v))
+print(f"vectors = {vectors}")
 
 
 def update_centroids(clusters: List[List[Tuple[int, int]]]) -> List[Tuple[int, int]]:
@@ -94,7 +116,7 @@ sol_centroids = None
 sol_clusters = None
 sol_distortion = math.inf
 
-for centroid_initial_list in itertools.combinations(vectors, K):
+for centroid_initial_list in itertools.combinations(vectors[:picking_limit], K):
     combination_centroids, combination_clusters = k_means(list(centroid_initial_list))
     combination_distortion = distortion(combination_centroids, combination_clusters)
 
