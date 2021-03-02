@@ -1,11 +1,12 @@
 import argparse
 import copy
+import csv
 import itertools
 import math
 import struct
 from typing import List, Tuple
 
-parser = argparse.ArgumentParser(description="Build a binary input from a json file")
+parser = argparse.ArgumentParser(description="Build the k-means")
 parser.add_argument("input_file", help="The path to the binary input file that describe an instance of k-means")
 parser.add_argument("output_file", help="The path to the CSV output file that describes the solutions")
 args = parser.parse_args()
@@ -32,13 +33,13 @@ print(f"vectors = {vectors}")
 def update_centroids(clusters: List[List[Tuple[int, int]]]) -> List[Tuple[int, int]]:
     """Compute the new centroids from the the current vectors"""
     centroids = []
-    for i in range(K):
+    for k in range(K):
         vector_sum = (0, 0)
-        for vector in clusters[i]:
+        for vector in clusters[k]:
             vector_sum = (vector_sum[0] + vector[0], vector_sum[1] + vector[1])
 
         # TODO Change here if we use floating points
-        centroids.append((round(vector_sum[0] // len(clusters[i])), round(vector_sum[1] // len(clusters[i]))))
+        centroids.append((round(vector_sum[0] // len(clusters[k])), round(vector_sum[1] // len(clusters[k]))))
 
     print(f"\tUpdate centroids to {centroids}")
     return centroids
@@ -105,9 +106,9 @@ def k_means(initial_centroids: List[Tuple[int, int]]) -> Tuple[List[Tuple[int, i
 
 def distortion(centroids: List[Tuple[int, int]], clusters: List[List[Tuple[int, int]]]) -> int:
     current_sum = 0
-    for i, cluster in enumerate(clusters):
+    for k, cluster in enumerate(clusters):
         for vector in cluster:
-            current_sum += euclidean_distance_squared(vector, centroids[i])
+            current_sum += euclidean_distance_squared(vector, centroids[k])
     return current_sum
 
 
@@ -115,6 +116,11 @@ sol_initial_centroids = None
 sol_centroids = None
 sol_clusters = None
 sol_distortion = math.inf
+
+initial_centroid_lists = []
+distortion_list = []
+centroid_lists = []
+cluster_lists = []
 
 for centroid_initial_list in itertools.combinations(vectors[:picking_limit], K):
     combination_centroids, combination_clusters = k_means(list(centroid_initial_list))
@@ -126,7 +132,26 @@ for centroid_initial_list in itertools.combinations(vectors[:picking_limit], K):
         sol_clusters = combination_clusters
         sol_initial_centroids = list(centroid_initial_list)
 
+    initial_centroid_lists.append(centroid_initial_list)
+    distortion_list.append(combination_distortion)
+    centroid_lists.append(combination_centroids)
+    cluster_lists.append(combination_clusters)
+
 print(f"Best initialisation centroids:\n{sol_initial_centroids}")
 print(f"Best centroids:\n{sol_centroids}")
 print(f"Best clusters:\n{sol_clusters}")
 print(f"Minimal sum of squared distances:\n{sol_distortion}")
+
+# Produce csv
+
+with open(args.output_file, "w") as file_obj:
+    writer = csv.DictWriter(file_obj, delimiter=',',
+                            fieldnames=["initialization centroids", "distortion", "centroids", "clusters"])
+    writer.writeheader()
+    for i in range(len(initial_centroid_lists)):
+        writer.writerow({
+            "initialization centroids": f"{list(initial_centroid_lists[i])}",
+            "distortion": distortion_list[i],
+            "centroids": f"{centroid_lists[i]}",
+            "clusters": f"{cluster_lists[i]}"
+        })
