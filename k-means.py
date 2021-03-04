@@ -9,6 +9,9 @@ from typing import List, Tuple
 parser = argparse.ArgumentParser(description="Build the k-means")
 parser.add_argument("input_file", help="The path to the binary input file that describe an instance of k-means")
 parser.add_argument("output_file", help="The path to the CSV output file that describes the solutions")
+parser.add_argument("K", help="The number of clusters to find")
+parser.add_argument("picking_limit", help="Only the combinations of vectors with an index in [0, picking_limit["
+                                          " can serve as initial centroids")
 args = parser.parse_args()
 
 # Parse binary file
@@ -16,12 +19,13 @@ args = parser.parse_args()
 with open(args.input_file, "rb") as file_obj:
     binary_data = file_obj.read()
 
-K, dimension, picking_limit = struct.unpack("!III", binary_data[:12])  # Unpack binary data in network-byte order
+K = int(args.K)
+picking_limit = int(args.picking_limit)
+dimension, nbr_vectors = struct.unpack("!IQ", binary_data[:12])  # Unpack binary data in network-byte order
 print(f"K = {K}, dimension = {dimension}, picking_limit = {picking_limit}")
 
 vectors: List[Tuple[int, int]] = []
-start_vectors_offset = 4 * 3
-nbr_vectors = (len(binary_data) - start_vectors_offset) // 8 // dimension
+start_vectors_offset = 12  # bytes
 for i in range(nbr_vectors):
     v: List[int] = []
     for j in range(dimension):

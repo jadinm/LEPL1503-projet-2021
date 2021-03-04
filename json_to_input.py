@@ -56,6 +56,6 @@ for i, vector in enumerate(vectors):
 
 # Write the structure in network byte-order
 
-binary_data = struct.pack("!III" + ("q" * len(numbers)), K, dimension, picking_limit, *numbers)
+binary_data = struct.pack("!IQ" + ("q" * len(numbers)), dimension, len(numbers) // dimension, *numbers)
 with open(args.binary_file, "wb") as file_obj:
     file_obj.write(binary_data)
