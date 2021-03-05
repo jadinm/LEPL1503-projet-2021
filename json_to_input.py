@@ -2,8 +2,6 @@ import argparse
 import json
 import struct
 
-K_LABEL = "K"
-PICKING_LIMIT_LABEL = "initialisation picking limit"
 VECTORS_LABEL = "vectors"
 
 
@@ -23,22 +21,9 @@ with open(args.json_file) as file_obj:
 
 # Check JSON input
 
-assert K_LABEL in json_obj, f"The number of centroids '{K_LABEL}' is not given"
-K = json_obj[K_LABEL]
-assert isinstance(K, int) and 0 < K <= 2 ** 32, \
-    "The number of centroids is not a strictly positive integer writable in 32 bits in C"
-
-assert PICKING_LIMIT_LABEL in json_obj, \
-    "The limit number of initialisation vectors to consider for combinations is not given"
-picking_limit = json_obj[PICKING_LIMIT_LABEL]
-assert isinstance(picking_limit, int) and 0 < picking_limit <= 2 ** 32, \
-    "The limit number of initialisation vectors to consider for combinations" \
-    " is not a strictly positive integer writable in 32 bits in C"
-
 assert VECTORS_LABEL in json_obj, "The vectors are not given"
 vectors = json_obj[VECTORS_LABEL]
 assert isinstance(vectors, list), "The vectors are not given as a list"
-assert len(vectors) >= picking_limit, "The number of vectors is smaller than the limit number of initialization vectors"
 
 assert isinstance(vectors[0], list), "The first vector is not a list"
 dimension = len(vectors[0])
