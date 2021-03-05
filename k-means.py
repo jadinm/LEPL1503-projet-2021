@@ -4,25 +4,26 @@ import csv
 import itertools
 import math
 import struct
+import sys
 from typing import List, Tuple
 
 parser = argparse.ArgumentParser(description="Build the k-means")
-parser.add_argument("input_file", help="The path to the binary input file that describe an instance of k-means")
-parser.add_argument("output_file", help="The path to the CSV output file that describes the solutions")
+parser.add_argument("-i", "--input-file", help="The path to the binary input file that describe an instance of k-means", type=argparse.FileType('rb'), default=sys.stdin.buffer)
+parser.add_argument("-o", "--output-file", help="The path to the CSV output file that describes the solutions", type=argparse.FileType('w'), default=sys.stdout)
 parser.add_argument("K", help="The number of clusters to find")
 parser.add_argument("picking_limit", help="Only the combinations of vectors with an index in [0, picking_limit["
                                           " can serve as initial centroids")
 args = parser.parse_args()
 
+print(args, file=sys.stderr)
 # Parse binary file
 
-with open(args.input_file, "rb") as file_obj:
-    binary_data = file_obj.read()
+binary_data = args.input_file.read()
 
 K = int(args.K)
 picking_limit = int(args.picking_limit)
 dimension, nbr_vectors = struct.unpack("!IQ", binary_data[:12])  # Unpack binary data in network-byte order
-print(f"K = {K}, dimension = {dimension}, picking_limit = {picking_limit}")
+print(f"K = {K}, dimension = {dimension}, picking_limit = {picking_limit}", file=sys.stderr)
 
 vectors: List[Tuple[int, int]] = []
 start_vectors_offset = 12  # bytes
@@ -31,7 +32,7 @@ for i in range(nbr_vectors):
     for j in range(dimension):
         v.append(struct.unpack_from("!q", binary_data, start_vectors_offset + i * dimension * 8 + j * 8)[0])
     vectors.append(tuple(v))
-print(f"vectors = {vectors}")
+print(f"vectors = {vectors}", file=sys.stderr)
 
 
 def update_centroids(clusters: List[List[Tuple[int, int]]]) -> List[Tuple[int, int]]:
@@ -45,7 +46,7 @@ def update_centroids(clusters: List[List[Tuple[int, int]]]) -> List[Tuple[int, i
         # TODO Change here if we use floating points
         centroids.append((round(vector_sum[0] // len(clusters[k])), round(vector_sum[1] // len(clusters[k]))))
 
-    print(f"\tUpdate centroids to {centroids}")
+    print(f"\tUpdate centroids to {centroids}", file=sys.stderr)
     return centroids
 
 
@@ -63,7 +64,7 @@ def assign_vectors_to_centroids(centroids: List[Tuple[int, int]], clusters: List
     Assign vectors to centroids
     :return: True iff the assignation has changed from the last iteration
     """
-    print("\tAssign points to centroids")
+    print("\tAssign points to centroids", file=sys.stderr)
 
     new_clusters = [[] for _ in range(K)]
     unchanged = True
@@ -81,7 +82,7 @@ def assign_vectors_to_centroids(centroids: List[Tuple[int, int]], clusters: List
 
             # Add the vector to the cluster of the closest centroid
             print(
-                f"\t\t{vector} closest to {centroids[closest_centroid_idx]} (before {centroids[current_centroid_idx]})")
+                f"\t\t{vector} closest to {centroids[closest_centroid_idx]} (before {centroids[current_centroid_idx]})", file=sys.stderr)
             new_clusters[closest_centroid_idx].append(vector)
 
             # Observe if the current vector changes its cluster
@@ -95,7 +96,7 @@ def k_means(initial_centroids: List[Tuple[int, int]]) -> Tuple[List[Tuple[int, i
     :param initial_centroids: The initial list of the K centroids
     :return: A tuple containing the final centroids and the final clusters
     """
-    print(f"Computing k-means with initial centroids = {initial_centroids}")
+    print(f"Computing k-means with initial centroids = {initial_centroids}", file=sys.stderr)
     centroids = initial_centroids
     clusters: List[List[Tuple[int, int]]] = [[] for _ in range(K)]
     clusters[0] = copy.copy(vectors)  # Assign all points to the first cluster
@@ -141,21 +142,20 @@ for centroid_initial_list in itertools.combinations(vectors[:picking_limit], K):
     centroid_lists.append(combination_centroids)
     cluster_lists.append(combination_clusters)
 
-print(f"Best initialisation centroids:\n{sol_initial_centroids}")
-print(f"Best centroids:\n{sol_centroids}")
-print(f"Best clusters:\n{sol_clusters}")
-print(f"Minimal sum of squared distances:\n{sol_distortion}")
+print(f"Best initialisation centroids:\n{sol_initial_centroids}", file=sys.stderr)
+print(f"Best centroids:\n{sol_centroids}", file=sys.stderr)
+print(f"Best clusters:\n{sol_clusters}", file=sys.stderr)
+print(f"Minimal sum of squared distances:\n{sol_distortion}", file=sys.stderr)
 
 # Produce csv
 
-with open(args.output_file, "w") as file_obj:
-    writer = csv.DictWriter(file_obj, delimiter=',',
-                            fieldnames=["initialization centroids", "distortion", "centroids", "clusters"])
-    writer.writeheader()
-    for i in range(len(initial_centroid_lists)):
-        writer.writerow({
-            "initialization centroids": f"{list(initial_centroid_lists[i])}",
-            "distortion": distortion_list[i],
-            "centroids": f"{centroid_lists[i]}",
-            "clusters": f"{cluster_lists[i]}"
-        })
+writer = csv.DictWriter(args.output_file, delimiter=',',
+                        fieldnames=["initialization centroids", "distortion", "centroids", "clusters"])
+writer.writeheader()
+for i in range(len(initial_centroid_lists)):
+    writer.writerow({
+        "initialization centroids": f"{list(initial_centroid_lists[i])}",
+        "distortion": distortion_list[i],
+        "centroids": f"{centroid_lists[i]}",
+        "clusters": f"{cluster_lists[i]}"
+    })

@@ -1,14 +1,15 @@
 import argparse
 import json
 import struct
+import sys
 
 VECTORS_LABEL = "vectors"
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Build a binary input from a json file")
-    parser.add_argument("json_file", help="The path to the json file")
-    parser.add_argument("binary_file", help="The path to the binary file that can be fed to your k-means program")
+    parser.add_argument("json_file", help="The path to the json file", type=argparse.FileType('r'), default=sys.stdin)
+    parser.add_argument("binary_file", help="The path to the binary file that can be fed to your k-means program", type=argparse.FileType('wb'), default=sys.stdout.buffer)
     return parser.parse_args()
 
 
@@ -16,8 +17,7 @@ args = parse_args()
 
 # Read
 
-with open(args.json_file) as file_obj:
-    json_obj = json.load(file_obj)
+json_obj = json.load(args.json_file)
 
 # Check JSON input
 
@@ -42,5 +42,4 @@ for i, vector in enumerate(vectors):
 # Write the structure in network byte-order
 
 binary_data = struct.pack("!IQ" + ("q" * len(numbers)), dimension, len(numbers) // dimension, *numbers)
-with open(args.binary_file, "wb") as file_obj:
-    file_obj.write(binary_data)
+args.binary_file.write(binary_data)
