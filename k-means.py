@@ -7,9 +7,12 @@ import struct
 import sys
 from typing import List, Tuple
 
+LOG = False
+
 parser = argparse.ArgumentParser(description="Build the k-means")
 parser.add_argument("-i", "--input-file", help="The path to the binary input file that describe an instance of k-means", type=argparse.FileType('rb'), default=sys.stdin.buffer)
 parser.add_argument("-o", "--output-file", help="The path to the CSV output file that describes the solutions", type=argparse.FileType('w'), default=sys.stdout)
+parser.add_argument("-d", "--distance", help="either \"manhattan\" or \"euclidean\": chooses the distance function to use for the k-means algorithm", type=str, default="manhattan")
 parser.add_argument("K", help="The number of clusters to find")
 parser.add_argument("picking_limit", help="Only the combinations of vectors with an index in [0, picking_limit["
                                           " can serve as initial centroids")
@@ -44,9 +47,12 @@ def update_centroids(clusters: List[List[Tuple[int, int]]]) -> List[Tuple[int, i
             vector_sum = (vector_sum[0] + vector[0], vector_sum[1] + vector[1])
 
         # TODO Change here if we use floating points
-        centroids.append((round(vector_sum[0] // len(clusters[k])), round(vector_sum[1] // len(clusters[k]))))
+        # /!\ we here use int(a/b) instead of a//b because // implements the floor division and with negative
+        # numbers this is not an integer division as it rounds the result down
+        centroids.append((int(vector_sum[0] / len(clusters[k])), int(vector_sum[1] // len(clusters[k]))))
 
-    print(f"\tUpdate centroids to {centroids}", file=sys.stderr)
+    if LOG:
+        print(f"\tUpdate centroids to {centroids}", file=sys.stderr)
     return centroids
 
 
@@ -55,7 +61,10 @@ def euclidean_distance_squared(a: Tuple[int, int], b: Tuple[int, int]) -> int:
 
 
 def manhattan_distance_squared(a: Tuple[int, int], b: Tuple[int, int]) -> int:
-    return ((b[0] - a[0]) + (b[1] - a[1])) * ((b[0] - a[0]) + (b[1] - a[1]))
+    return int((abs((b[0] - a[0])) + abs((b[1] - a[1]))) ** 2)
+
+
+DISTANCE_SQUARED = manhattan_distance_squared
 
 
 def assign_vectors_to_centroids(centroids: List[Tuple[int, int]], clusters: List[List[Tuple[int, int]]]) \
@@ -64,7 +73,8 @@ def assign_vectors_to_centroids(centroids: List[Tuple[int, int]], clusters: List
     Assign vectors to centroids
     :return: True iff the assignation has changed from the last iteration
     """
-    print("\tAssign points to centroids", file=sys.stderr)
+    if LOG:
+        print("\tAssign points to centroids", file=sys.stderr)
 
     new_clusters = [[] for _ in range(K)]
     unchanged = True
@@ -74,15 +84,17 @@ def assign_vectors_to_centroids(centroids: List[Tuple[int, int]], clusters: List
             closest_centroid_idx = None
             closest_centroid_distance = math.inf
             for centroid_idx in range(len(centroids)):
-                distance = euclidean_distance_squared(vector, centroids[centroid_idx])
+                distance = DISTANCE_SQUARED(vector, centroids[centroid_idx])
 
                 if distance < closest_centroid_distance:
                     closest_centroid_idx = centroid_idx
                     closest_centroid_distance = distance
 
             # Add the vector to the cluster of the closest centroid
-            print(
-                f"\t\t{vector} closest to {centroids[closest_centroid_idx]} (before {centroids[current_centroid_idx]})", file=sys.stderr)
+
+            if LOG:
+                print(
+                    f"\t\t{vector} closest to {centroids[closest_centroid_idx]} (before {centroids[current_centroid_idx]})", file=sys.stderr)
             new_clusters[closest_centroid_idx].append(vector)
 
             # Observe if the current vector changes its cluster
@@ -96,7 +108,9 @@ def k_means(initial_centroids: List[Tuple[int, int]]) -> Tuple[List[Tuple[int, i
     :param initial_centroids: The initial list of the K centroids
     :return: A tuple containing the final centroids and the final clusters
     """
-    print(f"Computing k-means with initial centroids = {initial_centroids}", file=sys.stderr)
+
+    if LOG:
+        print(f"Computing k-means with initial centroids = {initial_centroids}", file=sys.stderr)
     centroids = initial_centroids
     clusters: List[List[Tuple[int, int]]] = [[] for _ in range(K)]
     clusters[0] = copy.copy(vectors)  # Assign all points to the first cluster
@@ -113,7 +127,7 @@ def distortion(centroids: List[Tuple[int, int]], clusters: List[List[Tuple[int, 
     current_sum = 0
     for k, cluster in enumerate(clusters):
         for vector in cluster:
-            current_sum += euclidean_distance_squared(vector, centroids[k])
+            current_sum += DISTANCE_SQUARED(vector, centroids[k])
     return current_sum
 
 
