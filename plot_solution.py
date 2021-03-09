@@ -5,6 +5,8 @@ import sys
 
 import matplotlib.pyplot as plt
 
+csv.field_size_limit(sys.maxsize)
+
 
 def check_positive_or_min(value):
     if value == "min":
@@ -25,6 +27,11 @@ def parse_args():
     parser.add_argument("index_solution", help="The index of the k-means solution to plot starting at 0 "
                                                "(set \"min\" to automatically choose the solution with minimum distortion)",
                         type=check_positive_or_min)
+    parser.add_argument("-b", "--black",
+                        help="If set, does color the points and does not display the centroid of the clusters.",
+                        action="store_true")
+    parser.add_argument("-o", "--output-file", help="The path to the output file (can be pdf or png)", type=str, default=None)
+
     return parser.parse_args()
 
 
@@ -64,11 +71,16 @@ print(f"clusters = {solution_row['clusters']}")
 
 # Plot clusters
 for cluster in solution_row["clusters"]:
-    plt.scatter([vector[0] for vector in cluster], [vector[1] for vector in cluster])
+    plt.scatter([vector[0] for vector in cluster], [vector[1] for vector in cluster], s=5, color="black" if args.black else None)
 
-# Plot centroids
-plt.scatter([vector[0] for vector in solution_row["centroids"]], [vector[1] for vector in solution_row["centroids"]],
-            color="black", marker="x", label="centroids")
+if not args.black:
+    # Plot centroids
+    plt.scatter([vector[0] for vector in solution_row["centroids"]], [vector[1] for vector in solution_row["centroids"]],
+                color="black", marker="x", label="centroids")
 
-plt.legend()
-plt.show()
+if not args.black:
+    plt.legend()
+if args.output_file:
+    plt.savefig(args.output_file)
+else:
+    plt.show()
