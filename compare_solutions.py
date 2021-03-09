@@ -1,6 +1,10 @@
 import argparse
 import csv
+import json
+import sys
 from ast import literal_eval
+
+csv.field_size_limit(sys.maxsize)
 
 
 def parse_point(point_str):
@@ -27,8 +31,8 @@ args = parser.parse_args()
 solution_row = None
 reader_1 = csv.DictReader(args.csv_1)
 reader_2 = csv.DictReader(args.csv_2)
-keys = ["initialization centroids", "clusters", "centroids", "distortion"]
-parsing_functions = [parse_centroids, parse_clusters, parse_centroids, int]
+keys = ["initialization centroids", "distortion", "clusters", "centroids"]
+parsing_functions = [parse_centroids, int, parse_clusters, parse_centroids]
 
 # Check header
 
@@ -43,7 +47,7 @@ for key in keys:
 # Check each solution line
 
 row_by_centroid_1 = {}
-for row_1 in reader_1:
+for i, row_1 in enumerate(reader_1):
     initialization_centroids = parse_centroids(row_1["initialization centroids"])
     assert initialization_centroids not in row_by_centroid_1, f"There are multiple times the same initialisation centroids" \
                                                f" '{row_1['initialization centroids']}' in the csv" \
@@ -56,7 +60,7 @@ for row_1 in reader_1:
     }
 
 used_row_by_centroid_1 = {}
-for row_2 in reader_2:
+for i, row_2 in enumerate(reader_2):
     initialization_centroids = parse_centroids(row_2["initialization centroids"])
     assert initialization_centroids in row_by_centroid_1, f"The solution for the centroids '{initialization_centroids}' is given in the csv" \
                                            f" at '{args.csv_2.name}' but not in the csv at '{args.csv_1.name}'"
