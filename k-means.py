@@ -10,12 +10,13 @@ from typing import List, Tuple
 LOG = False
 
 parser = argparse.ArgumentParser(description="Build the k-means")
-parser.add_argument("-i", "--input-file", help="The path to the binary input file that describe an instance of k-means", type=argparse.FileType('rb'), default=sys.stdin.buffer)
-parser.add_argument("-o", "--output-file", help="The path to the CSV output file that describes the solutions", type=argparse.FileType('w'), default=sys.stdout)
+parser.add_argument("input_file", help="The path to the binary input file that describe an instance of k-means", type=argparse.FileType('rb'), default=sys.stdin.buffer)
+parser.add_argument("-f", "--output-file", help="The path to the CSV output file that describes the solutions", type=argparse.FileType('w'), default=sys.stdout)
 parser.add_argument("-d", "--distance", help="either \"manhattan\" or \"euclidean\": chooses the distance function to use for the k-means algorithm", type=str, default="manhattan")
-parser.add_argument("K", help="The number of clusters to find")
-parser.add_argument("picking_limit", help="Only the combinations of vectors with an index in [0, picking_limit["
+parser.add_argument("-k", type=int, help="The number of clusters to find")
+parser.add_argument("-p", "--picking_limit", help="Only the combinations of vectors with an index in [0, picking_limit["
                                           " can serve as initial centroids")
+parser.add_argument("-q", help="quiet mode: if set, does not output the clusters content (the \"clusters\" column is simply not present in the csv)")
 args = parser.parse_args()
 
 print(args, file=sys.stderr)
@@ -23,7 +24,7 @@ print(args, file=sys.stderr)
 
 binary_data = args.input_file.read()
 
-K = int(args.K)
+K = int(args.k)
 picking_limit = int(args.picking_limit)
 dimension, nbr_vectors = struct.unpack("!IQ", binary_data[:12])  # Unpack binary data in network-byte order
 print(f"K = {K}, dimension = {dimension}, picking_limit = {picking_limit}", file=sys.stderr)
@@ -35,7 +36,8 @@ for i in range(nbr_vectors):
     for j in range(dimension):
         v.append(struct.unpack_from("!q", binary_data, start_vectors_offset + i * dimension * 8 + j * 8)[0])
     vectors.append(tuple(v))
-print(f"vectors = {vectors}", file=sys.stderr)
+if LOG:
+    print(f"vectors = {vectors}", file=sys.stderr)
 
 
 def update_centroids(clusters: List[List[Tuple[int, int]]]) -> List[Tuple[int, int]]:
@@ -49,7 +51,7 @@ def update_centroids(clusters: List[List[Tuple[int, int]]]) -> List[Tuple[int, i
         # TODO Change here if we use floating points
         # /!\ we here use int(a/b) instead of a//b because // implements the floor division and with negative
         # numbers this is not an integer division as it rounds the result down
-        centroids.append((int(vector_sum[0] / len(clusters[k])), int(vector_sum[1] // len(clusters[k]))))
+        centroids.append((int(vector_sum[0] / len(clusters[k])), int(vector_sum[1] / len(clusters[k]))))
 
     if LOG:
         print(f"\tUpdate centroids to {centroids}", file=sys.stderr)
@@ -61,7 +63,8 @@ def euclidean_distance_squared(a: Tuple[int, int], b: Tuple[int, int]) -> int:
 
 
 def manhattan_distance_squared(a: Tuple[int, int], b: Tuple[int, int]) -> int:
-    return int((abs((b[0] - a[0])) + abs((b[1] - a[1]))) ** 2)
+    val = (abs((b[0] - a[0])) + abs((b[1] - a[1])))
+    return int(val*val)
 
 
 DISTANCE_SQUARED = manhattan_distance_squared
@@ -141,7 +144,7 @@ distortion_list = []
 centroid_lists = []
 cluster_lists = []
 
-for centroid_initial_list in itertools.combinations(vectors[:picking_limit], K):
+for i, centroid_initial_list in enumerate(itertools.combinations(vectors[:picking_limit], K)):
     combination_centroids, combination_clusters = k_means(list(centroid_initial_list))
     combination_distortion = distortion(combination_centroids, combination_clusters)
 
@@ -156,20 +159,27 @@ for centroid_initial_list in itertools.combinations(vectors[:picking_limit], K):
     centroid_lists.append(combination_centroids)
     cluster_lists.append(combination_clusters)
 
-print(f"Best initialisation centroids:\n{sol_initial_centroids}", file=sys.stderr)
-print(f"Best centroids:\n{sol_centroids}", file=sys.stderr)
-print(f"Best clusters:\n{sol_clusters}", file=sys.stderr)
-print(f"Minimal sum of squared distances:\n{sol_distortion}", file=sys.stderr)
+if LOG:
+    print(f"Best initialisation centroids:\n{sol_initial_centroids}", file=sys.stderr)
+    print(f"Best centroids:\n{sol_centroids}", file=sys.stderr)
+    print(f"Best clusters:\n{sol_clusters}", file=sys.stderr)
+    print(f"Minimal sum of squared distances:\n{sol_distortion}", file=sys.stderr)
 
 # Produce csv
 
+fieldnames = ["initialization centroids", "distortion", "centroids"]
+if not args.q:
+    fieldnames.append("clusters")
+
 writer = csv.DictWriter(args.output_file, delimiter=',',
-                        fieldnames=["initialization centroids", "distortion", "centroids", "clusters"])
+                        fieldnames=fieldnames)
 writer.writeheader()
 for i in range(len(initial_centroid_lists)):
-    writer.writerow({
+    row = {
         "initialization centroids": f"{list(initial_centroid_lists[i])}",
         "distortion": distortion_list[i],
         "centroids": f"{centroid_lists[i]}",
-        "clusters": f"{cluster_lists[i]}"
-    })
+    }
+    if not args.q:
+        row["clusters"] = f"{cluster_lists[i]}"
+    writer.writerow(row)
