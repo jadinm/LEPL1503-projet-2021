@@ -29,7 +29,7 @@ picking_limit = int(args.picking_limit)
 dimension, nbr_vectors = struct.unpack("!IQ", binary_data[:12])  # Unpack binary data in network-byte order
 print(f"K = {K}, dimension = {dimension}, picking_limit = {picking_limit}", file=sys.stderr)
 
-vectors: List[Tuple[int, int]] = []
+vectors: List[Tuple] = []
 start_vectors_offset = 12  # bytes
 for i in range(nbr_vectors):
     v: List[int] = []
@@ -40,38 +40,37 @@ if LOG:
     print(f"vectors = {vectors}", file=sys.stderr)
 
 
-def update_centroids(clusters: List[List[Tuple[int, int]]]) -> List[Tuple[int, int]]:
+def update_centroids(clusters: List[List[Tuple]]) -> List[Tuple]:
     """Compute the new centroids from the the current vectors"""
     centroids = []
     for k in range(K):
-        vector_sum = (0, 0)
+        vector_sum = tuple(0 for _ in range(dimension))
         for vector in clusters[k]:
-            vector_sum = (vector_sum[0] + vector[0], vector_sum[1] + vector[1])
+            vector_sum = tuple(vector_sum[m] + vector[m] for m in range(dimension))
 
-        # TODO Change here if we use floating points
         # /!\ we here use int(a/b) instead of a//b because // implements the floor division and with negative
         # numbers this is not an integer division as it rounds the result down
-        centroids.append((int(vector_sum[0] / len(clusters[k])), int(vector_sum[1] / len(clusters[k]))))
+        centroids.append(tuple(int(vector_sum[m] / len(clusters[k])) for m in range(dimension)))
 
     if LOG:
         print(f"\tUpdate centroids to {centroids}", file=sys.stderr)
     return centroids
 
 
-def euclidean_distance_squared(a: Tuple[int, int], b: Tuple[int, int]) -> int:
-    return (a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1])
+def euclidean_distance_squared(a: Tuple, b: Tuple) -> int:
+    return sum([(a[m] - b[m]) * (a[m] - b[m]) for m in range(dimension)])
 
 
-def manhattan_distance_squared(a: Tuple[int, int], b: Tuple[int, int]) -> int:
-    val = (abs((b[0] - a[0])) + abs((b[1] - a[1])))
+def manhattan_distance_squared(a: Tuple, b: Tuple) -> int:
+    val = sum([abs((b[m] - a[m])) for m in range(dimension)])
     return int(val*val)
 
 
 DISTANCE_SQUARED = manhattan_distance_squared
 
 
-def assign_vectors_to_centroids(centroids: List[Tuple[int, int]], clusters: List[List[Tuple[int, int]]]) \
-        -> Tuple[bool, List[List[Tuple[int, int]]]]:
+def assign_vectors_to_centroids(centroids: List[Tuple], clusters: List[List[Tuple]]) \
+        -> Tuple[bool, List[List[Tuple]]]:
     """
     Assign vectors to centroids
     :return: True iff the assignation has changed from the last iteration
@@ -106,7 +105,7 @@ def assign_vectors_to_centroids(centroids: List[Tuple[int, int]], clusters: List
     return not unchanged, new_clusters
 
 
-def k_means(initial_centroids: List[Tuple[int, int]]) -> Tuple[List[Tuple[int, int]], List[List[Tuple[int, int]]]]:
+def k_means(initial_centroids: List[Tuple]) -> Tuple[List[Tuple], List[List[Tuple]]]:
     """
     :param initial_centroids: The initial list of the K centroids
     :return: A tuple containing the final centroids and the final clusters
@@ -115,7 +114,7 @@ def k_means(initial_centroids: List[Tuple[int, int]]) -> Tuple[List[Tuple[int, i
     if LOG:
         print(f"Computing k-means with initial centroids = {initial_centroids}", file=sys.stderr)
     centroids = initial_centroids
-    clusters: List[List[Tuple[int, int]]] = [[] for _ in range(K)]
+    clusters: List[List[Tuple]] = [[] for _ in range(K)]
     clusters[0] = copy.copy(vectors)  # Assign all points to the first cluster
 
     changed = True
@@ -126,7 +125,7 @@ def k_means(initial_centroids: List[Tuple[int, int]]) -> Tuple[List[Tuple[int, i
     return centroids, clusters
 
 
-def distortion(centroids: List[Tuple[int, int]], clusters: List[List[Tuple[int, int]]]) -> int:
+def distortion(centroids: List[Tuple], clusters: List[List[Tuple]]) -> int:
     current_sum = 0
     for k, cluster in enumerate(clusters):
         for vector in cluster:
