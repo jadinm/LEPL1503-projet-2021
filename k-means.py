@@ -66,7 +66,7 @@ def manhattan_distance_squared(a: Tuple, b: Tuple) -> int:
     return int(val*val)
 
 
-DISTANCE_SQUARED = manhattan_distance_squared
+DISTANCE_SQUARED = manhattan_distance_squared if args.distance == "manhattan" else euclidean_distance_squared
 
 
 def assign_vectors_to_centroids(centroids: List[Tuple], clusters: List[List[Tuple]]) \
