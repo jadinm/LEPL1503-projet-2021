@@ -16,7 +16,7 @@ parser.add_argument("-d", "--distance", help="either \"manhattan\" or \"euclidea
 parser.add_argument("-k", type=int, help="The number of clusters to find")
 parser.add_argument("-p", "--picking_limit", help="Only the combinations of vectors with an index in [0, picking_limit["
                                           " can serve as initial centroids")
-parser.add_argument("-q", help="quiet mode: if set, does not output the clusters content (the \"clusters\" column is simply not present in the csv)")
+parser.add_argument("-q", help="quiet mode: if set, does not output the clusters content (the \"clusters\" column is simply not present in the csv)", action="store_true")
 args = parser.parse_args()
 
 print(args, file=sys.stderr)
